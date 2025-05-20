@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Cancer Care Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="chat-container">
+    <div class="ai-chat-box">
+        <img src="{{ url_for('static', filename='bot1.png') }}" alt="" id="aiimage" width="70">
+        <div class="ai-chat-area">
+            Hello! How can I help you today?
+        </div>
+    </div>
+</div>
+
+<div class="prompt-area">
+    <input type="text" id="prompt" placeholder="Message...">
+    <button id="image">
+        <img src="{{ url_for('static', filename='img.svg') }}" alt="Select an Image" id="imagePreview">
+        <input type="file" hidden accept=".jpg,.jpeg,.png,.pdf">
+    </button>
+    <button id="submit"><img src="{{ url_for('static', filename='submit.svg') }}" alt="Submit"></button>
+</div>
+
+<script>
+    let prompt = document.querySelector("#prompt");
+    let chatcontainer = document.querySelector(".chat-container");
+    let imagebtn = document.querySelector("#image");
+    let ipinput = document.querySelector("#image input");
+    let imagePreview = document.querySelector("#imagePreview");
+    let user = { data: null, file: null };
+
+    ipinput.addEventListener("change", () => {
+        let file = ipinput.files[0];
+        if (file) {
+            user.file = file;
+            let reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                imagePreview.style.objectFit = "cover";
+                imagePreview.style.borderRadius = "50%";
+                imagePreview.style.width = "100%";
+                imagePreview.style.height = "100%";
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    async function generateresponse(aichatbox) {
+        let formData = new FormData();
+
+        if (user.file) {
+            formData.append('file', user.file);
+        } else if (user.data) {
+            formData.append('msg', user.data);
+        }
+
+        try {
+            let response = await fetch("/get", {
+                method: "POST",
+                body: formData
+            });
+            let data = await response.text();
+            aichatbox.querySelector(".ai-chat-area").innerHTML = data;
+        } catch (error) {
+            console.error(error);
+        } finally {
+            chatcontainer.scrollTo({ top: chatcontainer.scrollHeight, behavior: "smooth" });
+            user.file = null;  // Reset after sending
+        }
+    }
+
+    function handlechatresponse(message) {
+        user.data = message;
+        prompt.value = "";
+
+        let html = "<img src=\"{{ url_for('static', filename='student1.png') }}\" alt=\"\" id=\"userimage\" width=\"50\">" +
+                   "<div class=\"user-chat-area\">" + user.data + "</div>";
+        chatcontainer.appendChild(createchatbox(html, "user-chat-box"));
+        chatcontainer.scrollTo({ top: chatcontainer.scrollHeight, behavior: "smooth" });
+
+        if (user.file) {
+            let filePreview = '';
+            if (user.file.type.startsWith('image/')) {
+                filePreview = `<img src="${URL.createObjectURL(user.file)}" alt="File" width="100" height="100">`;
+            } else if (user.file.type === 'application/pdf') {
+                filePreview = `<a href="${URL.createObjectURL(user.file)}" target="_blank">View PDF</a>`;
+            }
+            let fileHtml = "<img src=\"{{ url_for('static', filename='student1.png') }}\" alt=\"\" id=\"userimage\" width=\"50\">" +
+                           "<div class=\"user-chat-area\">" + filePreview + "</div>";
+            chatcontainer.appendChild(createchatbox(fileHtml, "user-chat-box"));
+        }
+
+        setTimeout(() => {
+            let html = "<img src=\"{{ url_for('static', filename='bot1.png') }}\" alt=\"\" id=\"aiimage\" width=\"70\">" +
+                       "<div class=\"ai-chat-area\"><img src=\"{{ url_for('static', filename='chatanime.webp') }}\" alt=\"\" class=\"load\" width=\"50px\"></div>";
+            let aichatbox = createchatbox(html, "ai-chat-box");
+            chatcontainer.appendChild(aichatbox);
+            generateresponse(aichatbox);
+        }, 600);
+
+        imagePreview.src = "{{ url_for('static', filename='img.svg') }}";
+        imagePreview.style.borderRadius = "50%";
+        imagePreview.style.objectFit = "cover";
+        imagePreview.style.width = "100%";
+        imagePreview.style.height = "100%";
+    }
+
+    function createchatbox(html, classes) {
+        let div = document.createElement("div");
+        div.innerHTML = html;
+        div.classList.add(classes);
+        return div;
+    }
+
+    document.querySelector("#submit").addEventListener("click", () => {
+        if (prompt.value !== '') handlechatresponse(prompt.value);
+    });
+
+    prompt.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && prompt.value !== '') handlechatresponse(prompt.value);
+    });
+
+    imagebtn.addEventListener("click", () => ipinput.click());
+</script>
+</body>
+</html>
